@@ -1,4 +1,4 @@
-""" TODO """
+""" Class file containing necessary functionality for the Snake asset within the Snake game """
 import pygame
 
 
@@ -37,16 +37,16 @@ class Snake(pygame.sprite.Sprite):
         :return:
         """
         # Base Snake game functionality - To be replaced by DQL agent policy
-        if event.key == pygame.K_LEFT or event.key == pygame.K_a:
+        if (event.key == pygame.K_LEFT or event.key == pygame.K_a) and self.trajectory.x == 0:
             self.trajectory.x = -self.block_size
             self.trajectory.y = 0
-        elif event.key == pygame.K_RIGHT or event.key == pygame.K_d:
+        elif (event.key == pygame.K_RIGHT or event.key == pygame.K_d) and self.trajectory.x == 0:
             self.trajectory.x = self.block_size
             self.trajectory.y = 0
-        elif event.key == pygame.K_UP or event.key == pygame.K_w:
+        elif (event.key == pygame.K_UP or event.key == pygame.K_w) and self.trajectory.y == 0:
             self.trajectory.x = 0
             self.trajectory.y = -self.block_size
-        elif event.key == pygame.K_DOWN or event.key == pygame.K_s:
+        elif (event.key == pygame.K_DOWN or event.key == pygame.K_s) and self.trajectory.y == 0:
             self.trajectory.x = 0
             self.trajectory.y = self.block_size
 
@@ -61,19 +61,19 @@ class Snake(pygame.sprite.Sprite):
         self.rect.y += self.trajectory.y
 
         # Initialize variables to track locations of snake components
-        snake_head = []
+        head = []
 
         # Append the current locations of the snakes components to their respective lists
-        snake_head.append(self.rect.x)
-        snake_head.append(self.rect.y)
-        self.entire_snake.append(snake_head)
+        head.append(self.rect.x)
+        head.append(self.rect.y)
+        self.entire_snake.append(head)
 
         # If the length of the entire_snake array is larger than the `self.snake_length` array, then remove the first
         # set of coordinates since the snake has moved out of this location
         if len(self.entire_snake) > self.snake_length:
             del self.entire_snake[0]
 
-        collision = self.__check_collision(snake_head_coordinates=snake_head, snake_coordinates_list=self.entire_snake)
+        collision = self.__check_collision(snake_head_coordinates=head, snake_coordinates_list=self.entire_snake)
 
         return collision
 
@@ -92,7 +92,6 @@ class Snake(pygame.sprite.Sprite):
             # If so, indicate that a collision has occurred and the game should end
             if cell == snake_head_coordinates:
                 collision = True
-
         return collision
 
     def display_snake(self, game_screen):

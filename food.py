@@ -1,4 +1,4 @@
-""" TODO """
+""" Class file containing necessary functionality for the Food Pellet asset within the Snake game """
 import random
 import pygame
 
@@ -21,14 +21,22 @@ class FoodPellet(pygame.sprite.Sprite):
         # Define asset within game surface
         self.rect = self.surf.get_rect()
 
-    def update(self, window_width, window_height):
+    def update(self, window_width, window_height, snake_body):
         """
         Update position of the Food Pellet to a random location not currently occupied by any part of the snake
 
+        :param window_width: Width of the game window in which the food can be spawned
+        :param window_height: Height of the game window in which the food can be spawned
+        :param snake_body: Coordinates for all cells belonging to the snakes body
         :return:
         """
         self.rect.x = round(random.randrange(0, window_width - self.block_size) / self.block_size) * self.block_size
         self.rect.y = round(random.randrange(0, window_height - self.block_size) / self.block_size) * self.block_size
+        while [self.rect.x, self.rect.y] in snake_body:
+            self.rect.x = round(
+                random.randrange(0, window_width - self.block_size) / self.block_size) * self.block_size
+            self.rect.y = round(
+                random.randrange(0, window_height - self.block_size) / self.block_size) * self.block_size
 
     def display_food(self, game_screen):
         """

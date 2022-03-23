@@ -1,4 +1,4 @@
-""" TODO """
+""" Main file for Deep Q-Learning Snake Game Implementation """
 import sys
 import math
 import time
@@ -16,11 +16,6 @@ BLOCK_SIZE = 20
 global SCREEN, CLOCK
 
 
-def display_game_message(msg, color):
-    message = pygame.font.SysFont(None, 50).render(msg, True, color)
-    SCREEN.blit(message, [WINDOW_WIDTH/4, WINDOW_HEIGHT/4])
-
-
 if __name__ == '__main__':
     # Initialize an instance of pygame for development
     pygame.init()
@@ -34,15 +29,15 @@ if __name__ == '__main__':
     pygame.display.update()
     pygame.display.set_caption("Deep Q-Learning Snake Game")
 
-    # Define an instance of the Snake agent and initialize its location within the game board
-    snake = Snake()
-    snake.rect.x = math.floor((WINDOW_WIDTH / 4) - 20)
-    snake.rect.y = math.floor((WINDOW_HEIGHT / 2) - 20)
-
     # Define an instance of the Food Pellet and initialize its locations within the game board
     food = FoodPellet()
     food.rect.x = math.floor((WINDOW_WIDTH / 4) * 3 - 20)
     food.rect.y = math.floor((WINDOW_HEIGHT / 2) - 20)
+
+    # Define an instance of the Snake agent and initialize its location within the game board
+    snake = Snake()
+    snake.rect.x = math.floor((WINDOW_WIDTH / 4) - 20)
+    snake.rect.y = math.floor((WINDOW_HEIGHT / 2) - 20)
 
     # Loop until the game ends
     game_over = False
@@ -58,22 +53,25 @@ if __name__ == '__main__':
 
             # If an action is received update the snakes position within the environment
             if event.type == pygame.KEYDOWN:
-                # Snake's update function will detect and return whether the snake has collided with its tail
-                game_over = snake.update(event=event)
+                # Update Snake asset's trajectory based on keyboard inputs (this will later become DQL policy inputs)
+                snake.update(event=event)
+
+        # Move the snake to its new location and check whether a collision occurs with the snakes tail
+        game_over = snake.move_snake()
+        SCREEN.fill(BACKGROUND)
 
         # If snake leaves the bounds of the board... game over
         if snake.rect.x >= WINDOW_WIDTH or snake.rect.x < 0 or snake.rect.y >= WINDOW_HEIGHT or snake.rect.y < 0:
             game_over = True
 
-        # Move the snake to its new location and update the snake display within the game screen
-        snake.move_snake()
-        SCREEN.fill(BACKGROUND)
+        # Display the updated locations of the snake and food within the game screen
         snake.display_snake(SCREEN)
         food.display_food(SCREEN)
 
+
         # Display the current score of the game
         score_message = pygame.font.SysFont(None, 35).render("Game Score: {}".format(str(snake.snake_length - 1)),
-                                                             True, (0, 0, 139))
+                                                             True, (255, 255, 255))
         SCREEN.blit(score_message, [0, 0])
 
         # Update the display within the game window
@@ -81,14 +79,14 @@ if __name__ == '__main__':
 
         # If the snake enters the game cell where the food is located, update the position of the food
         if snake.rect.x == food.rect.x and snake.rect.y == food.rect.y:
-            print("Consume Food Pellet...")
-            food.update(WINDOW_WIDTH, WINDOW_HEIGHT)
+            food.update(WINDOW_WIDTH, WINDOW_HEIGHT, snake.entire_snake)
             snake.snake_length += 1
 
         CLOCK.tick(snake.speed)
 
     # If game over, display screen indicating so
-    display_game_message("Game Over", (238, 75, 43))
+    game_over_message = pygame.font.SysFont(None, 50).render('GAME OVER', True, (238, 75, 43))
+    SCREEN.blit(game_over_message, [WINDOW_WIDTH / 4, WINDOW_HEIGHT / 4])
     pygame.display.update()
     time.sleep(2)
 
