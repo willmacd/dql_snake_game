@@ -54,7 +54,7 @@ class Snake(pygame.sprite.Sprite):
         self.__dql_model.add(tf.keras.layers.Dense(100, activation='relu'))
         self.__dql_model.add(tf.keras.layers.Dropout(0.3))
         # Initialize the output fully connected layer followed by Softmax activation
-        self.__dql_model.add(tf.keras.layers.Dense(3), activation='relu')
+        self.__dql_model.add(tf.keras.layers.Dense(3, activation='relu'))
 
     def update(self, event):
         """
