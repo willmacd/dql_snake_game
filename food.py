@@ -1,33 +1,40 @@
 """ TODO """
-
+import random
 import pygame
 
 
 class FoodPellet(pygame.sprite.Sprite):
-    def __init__(self):
+    def __init__(self, block_size: int = 20):
         """
         Constructor for FoodPellet sprite class, defining all functionality of the FoodPellet asset in the snake game
+
+        :param block_size: Size of single square within the game board
         """
         super(FoodPellet, self).__init__()
         # Initialize game surface for agent, and assign asset a color
-        self.surf = pygame.Surface((20, 20))
+        self.surf = pygame.Surface((block_size, block_size))
         self.surf.fill((238, 75, 43))
+
+        # Define attribute to define the size of game board cells
+        self.block_size = block_size
 
         # Define asset within game surface
         self.rect = self.surf.get_rect()
 
-    def update(self):
+    def update(self, window_width, window_height):
         """
         Update position of the Food Pellet to a random location not currently occupied by any part of the snake
 
         :return:
         """
-        eaten = False
+        self.rect.x = round(random.randrange(0, window_width - self.block_size) / self.block_size) * self.block_size
+        self.rect.y = round(random.randrange(0, window_height - self.block_size) / self.block_size) * self.block_size
 
-        # If snake collides with food pellet at given point in time, spawn new pellet randomly within the board such
-        # that it is not overlapping with any part of the snake
-        if eaten:
-            pass
-        # Otherwise, leave the food pellet at its current location
-        else:
-            pass
+    def display_food(self, game_screen):
+        """
+        Function for displaying the Food Pellet within the game screen
+
+        :param game_screen: Reference to window in which the game is being hosted
+        :return:
+        """
+        pygame.draw.rect(game_screen, (238, 75, 43), [self.rect.x, self.rect.y, self.block_size, self.block_size])
