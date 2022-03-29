@@ -56,6 +56,9 @@ if __name__ == '__main__':
                 # Update Snake asset's trajectory based on keyboard inputs (this will later become DQL policy inputs)
                 snake.update(event=event)
 
+        # Derive the observable state vector based on the surronding environment information of the snake
+        state_vector = snake.state_vector(food_loc=food.rect, window_width=WINDOW_WIDTH, window_height=WINDOW_HEIGHT)
+
         # Move the snake to its new location and check whether a collision occurs with the snakes tail
         game_over = snake.move_snake()
         SCREEN.fill(BACKGROUND)

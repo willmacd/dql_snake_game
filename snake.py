@@ -29,7 +29,7 @@ class Snake(pygame.sprite.Sprite):
         self.entire_snake = []
 
         # Define trajectory of snake agents head and the speed at which it travels (one block per time-step)
-        self.speed = 10
+        self.speed = 5
         self.trajectory = pygame.math.Vector2(block_size, 0)
 
         # Define the rewards for specified actions
@@ -87,37 +87,30 @@ class Snake(pygame.sprite.Sprite):
         self.rect.x += self.trajectory.x
         self.rect.y += self.trajectory.y
 
-        # Initialize variables to track locations of snake components
-        head = []
-
         # Append the current locations of the snakes components to their respective lists
-        head.append(self.rect.x)
-        head.append(self.rect.y)
-        self.entire_snake.append(head)
+        self.entire_snake.append([self.rect.x, self.rect.y])
 
         # If the length of the entire_snake array is larger than the `self.snake_length` array, then remove the first
         # set of coordinates since the snake has moved out of this location
         if len(self.entire_snake) > self.snake_length:
             del self.entire_snake[0]
 
-        collision = self.__check_collision(snake_head_coordinates=head, snake_coordinates_list=self.entire_snake)
+        collision = self.__check_collision()
 
         return collision
 
-    def __check_collision(self, snake_head_coordinates: list, snake_coordinates_list: list):
+    def __check_collision(self):
         """
         Check whether the snake's head has collided with any part of its tail
 
-        :param snake_head_coordinates: List of coordinates for where the head of the snake is located
-        :param snake_coordinates_list: List of coordinates for each component of the snakes body
         :return:
         """
         # Loop through each cell of the snakes body and determine if the head of the snake has made a collision with the
         # any section of the snakes tail
         collision = False
-        for cell in snake_coordinates_list[:-1]:
+        for cell in self.entire_snake[:-1]:
             # If so, indicate that a collision has occurred and the game should end
-            if cell == snake_head_coordinates:
+            if cell == [self.rect.x, self.rect.y]:
                 collision = True
         return collision
 
@@ -131,27 +124,169 @@ class Snake(pygame.sprite.Sprite):
         for x in self.entire_snake:
             pygame.draw.rect(game_screen, (0, 0, 139), [x[0], x[1], self.block_size, self.block_size])
 
-    def state_vector(self, food_loc):
+    def state_vector(self, food_loc, window_width, window_height):
         """
         Function to generate the observable state vector for the snake at any given point in time
 
         :param food_loc: Location of the food within the game screen - to be converted to binary values such as:
         'food_left', 'food_right', 'food_up', and 'food_down'
+        :param window_width: Width of the game window in which the snake can move
+        :param window_height: Height of the game window in which the snake can move
         :return:
         """
         # Initialize the state vector list
         state_vector = []
 
-        # TODO: Define boolean value to indicate whether there is a threat immediately in front of Snake's head
-        danger_straight = None
+        # Initialize binary variables for `danger_straight`, `danger_left` and `danger_right`
+        danger_straight = 0
+        danger_left = 0
+        danger_right = 0
+
+        # If Snake's location is against the leftmost border
+        if self.rect.x == self.block_size:
+            # And Snake's trajectory is moving left
+            if self.trajectory.x < 0:
+                # Snake is moving directly toward the border, set `danger_straight` to 1
+                danger_straight = 1
+        # If Snake's location is against the rightmost border (one away form border since triggering occurs upon
+        # entering the next state)
+        elif self.rect.x == (window_width - self.block_size - self.block_size):
+            # And Snake's trajectory is moving right
+            if self.trajectory.x > 0:
+                # Snake is moving directly toward the border, set `danger_straight` to 1
+                danger_straight = 1
+
+        # If Snake's location is against the topmost border
+        if self.rect.y == self.block_size:
+            # And Snake's trajectory is moving up
+            if self.trajectory.y < 0:
+                # Snake is moving directly toward the border, set `danger_straight` to 1
+                danger_straight = 1
+        # If Snake's location is against the bottommost border (one away form border since triggering occurs upon
+        # entering the next state)
+        elif self.rect.y == (window_height - self.block_size - self.block_size):
+            # And Snake's trajectory is moving down
+            if self.trajectory.y > 0:
+                # Snake is moving directly toward the border, set `danger_straight` to 1
+                danger_straight = 1
+
+        # If Snake's location is against the leftmost border
+        if self.rect.x == 0:
+            # And Snake's trajectory is moving up
+            if self.trajectory.y < 0:
+                # Snake is moving up along leftmost border, set `danger_left` to 1
+                danger_left = 1
+            # And Snake's trajectory is moving down
+            elif self.trajectory.y > 0:
+                # Snake is moving down along the leftmost border, set `danger_right` to 1
+                danger_right = 1
+        # If Snake's location is against the rightmost border
+        elif self.rect.x == (window_width - self.block_size):
+            # And Snake's trajectory is moving up
+            if self.trajectory.y < 0:
+                # Snake is moving up along the rightmost border, set `danger_right` to 1
+                danger_right = 1
+            # And Snake's trajectory is moving down
+            elif self.trajectory.y > 0:
+                # Snake is moving down along the rightmost border, set `danger_left` to 1
+                danger_left = 1
+
+        if self.rect.y == 0:
+            # And Snake's trajectory is moving left
+            if self.trajectory.x < 0:
+                # Snake is moving left along the topmost border, set `danger_right` to 1
+                danger_right = 1
+            # And Snake's trajectory is moving right
+            elif self.trajectory.x > 0:
+                # Snake is moving right along the topmost border, set `danger_left` to 1
+                danger_left = 1
+        # If Snake's location is against the bottommost border
+        elif self.rect.y == (window_height - self.block_size):
+            # And Snake's trajectory is moving left
+            if self.trajectory.x < 0:
+                # Snake is moving left along the bottommost border, set `danger_left` to 1
+                danger_left = 1
+            # And Snake's trajectory is moving right
+            elif self.trajectory.x > 0:
+                # Snake is moving right along the bottommost border, set `danger_right` to 1
+                danger_right = 1
+
+        # Check all of the cells in the Snake's body
+        for cell in self.entire_snake[:-1]:
+            # If a body cell is located one cell to the right of the Snake's head
+            if cell == [self.rect.x + self.block_size + self.block_size, self.rect.y]:
+                # And Snake's trajectory is moving right
+                if self.trajectory.x > 0:
+                    # Set `danger_straight` to 1
+                    danger_straight = 1
+
+            # If a body cell is located one cell to the left of the Snake's head
+            if cell == [self.rect.x - self.block_size - self.block_size, self.rect.y]:
+                # And Snake's trajectory is moving left
+                if self.trajectory.x < 0:
+                    # Set `danger_straight` to 1
+                    danger_straight = 1
+
+            # If a body cell is located one cell below the Snake's head
+            if cell == [self.rect.x, self.rect.y + self.block_size + self.block_size]:
+                # And Snake's trajectory is moving left
+                if self.trajectory.x < 0:
+                    # Set `danger_left` to 1
+                    danger_left = 1
+
+            # If a body cell is located one cell above the Snake's head
+            if cell == [self.rect.x, self.rect.y - self.block_size - self.block_size]:
+                # And Snake's trajectory is moving up
+                if self.trajectory.y < 0:
+                    # Set `danger_straight` to 1
+                    danger_straight = 1
+
+            # If a body cell is located one cell to the right of the Snake's head
+            if cell == [self.rect.x + self.block_size, self.rect.y]:
+                # And Snake's trajectory is moving up
+                if self.trajectory.y < 0:
+                    # Set `danger_right` to 1
+                    danger_right = 1
+                # And Snake's trajectory is moving down
+                elif self.trajectory.y > 0:
+                    # Set `danger_left` to 1
+                    danger_left = 1
+
+            # If a body cell is located one cell to the left of the Snake's head
+            if cell == [self.rect.x - self.block_size, self.rect.y]:
+                # And Snake's trajectory is moving up
+                if self.trajectory.y < 0:
+                    # Set `danger_left` to 1
+                    danger_left = 1
+                # And Snake's trajectory is moving down
+                elif self.trajectory.y > 0:
+                    # Set `danger_right` to 1
+                    danger_right = 1
+
+            # If a body cell is located one cell below the Snake's head
+            if cell == [self.rect.x, self.rect.y + self.block_size]:
+                # And Snake's trajectory is moving left
+                if self.trajectory.x < 0:
+                    # Set `danger_left` to 1
+                    danger_left = 1
+                # And Snake's trajectory is moving right
+                elif self.trajectory.x > 0:
+                    # Set `danger_right` to 1
+                    danger_right = 1
+
+            # If a body cell is located one cell above the Snake's head
+            if cell == [self.rect.x, self.rect.y - self.block_size]:
+                # And Snake's trajectory is moving left
+                if self.trajectory.x < 0:
+                    # Set `danger_right` to 1
+                    danger_right = 1
+                # And Snake's trajectory is moving right
+                elif self.trajectory.x > 0:
+                    # Set `danger_left` to 1
+                    danger_left = 1
+
         state_vector.append(danger_straight)
-
-        # TODO: Define boolean value to indicate whether there is a threat immediately to the left of the Snake's head
-        danger_left = None
         state_vector.append(danger_left)
-
-        # TODO: Define boolean value to indicate whether there is a thread immediately to the right of the Snake's head
-        danger_right = None
         state_vector.append(danger_right)
 
         # Set `moving_left` to 1 if the Snake's X trajectory is less than 0 (i.e., -20); otherwise, set to 0
