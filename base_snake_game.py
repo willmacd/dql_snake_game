@@ -27,7 +27,7 @@ if __name__ == '__main__':
 
     # Update display and set a Window name for the game
     pygame.display.update()
-    pygame.display.set_caption("Deep Q-Learning Snake Game")
+    pygame.display.set_caption("Snake Game")
 
     # Define an instance of the Food Pellet and initialize its locations within the game board
     food = FoodPellet()
@@ -56,11 +56,14 @@ if __name__ == '__main__':
                 # Update Snake asset's trajectory based on keyboard inputs (this will later become DQL policy inputs)
                 snake.update(event=event)
 
-        # Derive the observable state vector based on the surronding environment information of the snake
-        state_vector = snake.state_vector(food_loc=food.rect, window_width=WINDOW_WIDTH, window_height=WINDOW_HEIGHT)
-
         # Move the snake to its new location and check whether a collision occurs with the snakes tail
         game_over = snake.move_snake()
+
+        # If the snake enters the game cell where the food is located, update the position of the food
+        if snake.rect.x == food.rect.x and snake.rect.y == food.rect.y:
+            food.update(WINDOW_WIDTH, WINDOW_HEIGHT, snake.entire_snake)
+            snake.snake_length += 1
+
         SCREEN.fill(BACKGROUND)
 
         # If snake leaves the bounds of the board... game over
@@ -71,7 +74,6 @@ if __name__ == '__main__':
         snake.display_snake(SCREEN)
         food.display_food(SCREEN)
 
-
         # Display the current score of the game
         score_message = pygame.font.SysFont(None, 35).render("Game Score: {}".format(str(snake.snake_length - 1)),
                                                              True, (255, 255, 255))
@@ -79,12 +81,6 @@ if __name__ == '__main__':
 
         # Update the display within the game window
         pygame.display.update()
-
-        # If the snake enters the game cell where the food is located, update the position of the food
-        if snake.rect.x == food.rect.x and snake.rect.y == food.rect.y:
-            food.update(WINDOW_WIDTH, WINDOW_HEIGHT, snake.entire_snake)
-            snake.snake_length += 1
-
         CLOCK.tick(snake.speed)
 
     # If game over, display screen indicating so
