@@ -36,7 +36,6 @@ class Snake(pygame.sprite.Sprite):
         :param event: pygame event that occurred at current time-step
         :return:
         """
-        print("Using this...")
         # Base Snake game functionality - To be replaced by DQL agent policy
         if (event.key == pygame.K_LEFT or event.key == pygame.K_a) and self.trajectory.x == 0:
             self.trajectory.x = -self.block_size
