@@ -26,7 +26,7 @@ class Snake(pygame.sprite.Sprite):
         self.entire_snake = []
 
         # Define trajectory of snake agents head and the speed at which it travels (one block per time-step)
-        self.speed = 20
+        self.speed = 5
         self.trajectory = pygame.math.Vector2(block_size, 0)
 
     def update(self, event):

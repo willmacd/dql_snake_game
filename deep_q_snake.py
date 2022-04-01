@@ -1,4 +1,6 @@
 """ Child class of Snake to be used for Deep Q-Learning implementation of Snake game """
+import os
+
 import numpy as np
 import tensorflow as tf
 
@@ -15,19 +17,25 @@ class Deep_Q_Snake(Snake):
         """
         super(Deep_Q_Snake, self).__init__(block_size=block_size)
 
-        # Define the rewards for specified actions
-        self.food_reward = 10
-        self.collision_reward = -10
-        self.else_reward = 0
+        # Override the snake speed attribute to make training process significantly faster
+        self.speed = 20
 
-        # Define the exploration rate - TODO: Try exponential decay of epsilon with as episodes increase
+        # Define the rewards for specified actions
+        self.food_reward = 10.
+        self.collision_reward = -10.
+        self.else_reward = 0.
+
+        # Define the exploration rate
         self.__epsilon = float(1 / 75)
 
         # Define discount factor
-        self.__gamma = 1
+        self.__gamma = 0.75
 
-        self.__states_replay_buffer = np.array([]).reshape(0, 11)
-        self.__rewards_replay_buffer = np.array([]).reshape(0, 1)
+        self.__state_replay_buffer = np.array([]).reshape(0, 11)
+        self.__action_replay_buffer = np.array([]).reshape(0, 1)
+        self.__reward_replay_buffer = np.array([]).reshape(0, 1)
+        self.__state_prime_replay_buffer = np.array([]).reshape(0, 11)
+        self.__terminal_replay_buffer = np.array([]).reshape(0, 1)
 
         # Define Deep Q-Learning model architecture
         # Initialize a sequential neural network architecture and its input layer
@@ -35,15 +43,15 @@ class Deep_Q_Snake(Snake):
         self.__dql_model.add(tf.keras.layers.InputLayer(input_shape=(11, )))
         # Initialize the first fully connected layer followed by ReLU activation and Dropout
         self.__dql_model.add(tf.keras.layers.Dense(100, activation='relu'))
-        self.__dql_model.add(tf.keras.layers.Dropout(0.3))
+        # self.__dql_model.add(tf.keras.layers.Dropout(0.3))
         # Initialize the second fully connected layer followed by ReLU activation and Dropout
         self.__dql_model.add(tf.keras.layers.Dense(100, activation='relu'))
-        self.__dql_model.add(tf.keras.layers.Dropout(0.3))
+        # self.__dql_model.add(tf.keras.layers.Dropout(0.3))
         # Initialize the third fully connected layer followed by ReLU activation and Dropout
         self.__dql_model.add(tf.keras.layers.Dense(100, activation='relu'))
-        self.__dql_model.add(tf.keras.layers.Dropout(0.3))
+        # self.__dql_model.add(tf.keras.layers.Dropout(0.3))
         # Initialize the output fully connected layer followed by Softmax activation
-        self.__dql_model.add(tf.keras.layers.Dense(3, activation='relu'))
+        self.__dql_model.add(tf.keras.layers.Dense(3, activation='softmax'))
 
     def __epsilon_greedy_selection(self, state_vector):
         """
@@ -121,6 +129,7 @@ class Deep_Q_Snake(Snake):
         else:
             # Continue with the current specified trajectory
             self.trajectory = self.trajectory
+        return action
 
     def state_vector(self, food_loc, window_width, window_height):
         """
@@ -215,6 +224,7 @@ class Deep_Q_Snake(Snake):
             if cell == [self.rect.x + self.block_size + self.block_size, self.rect.y]:
                 # And Snake's trajectory is moving right
                 if self.trajectory.x > 0:
+                    print("Danger Straight")
                     # Set `danger_straight` to 1
                     danger_straight = 1
 
@@ -222,20 +232,23 @@ class Deep_Q_Snake(Snake):
             if cell == [self.rect.x - self.block_size - self.block_size, self.rect.y]:
                 # And Snake's trajectory is moving left
                 if self.trajectory.x < 0:
+                    print("Danger Straight")
                     # Set `danger_straight` to 1
                     danger_straight = 1
 
             # If a body cell is located one cell below the Snake's head
             if cell == [self.rect.x, self.rect.y + self.block_size + self.block_size]:
-                # And Snake's trajectory is moving left
-                if self.trajectory.x < 0:
-                    # Set `danger_left` to 1
-                    danger_left = 1
+                # And Snake's trajectory is moving down
+                if self.trajectory.y > 0:
+                    print("Danger Straight")
+                    # Set `danger_straight` to 1
+                    danger_straight = 1
 
             # If a body cell is located one cell above the Snake's head
             if cell == [self.rect.x, self.rect.y - self.block_size - self.block_size]:
                 # And Snake's trajectory is moving up
                 if self.trajectory.y < 0:
+                    print("Danger Straight")
                     # Set `danger_straight` to 1
                     danger_straight = 1
 
@@ -323,16 +336,23 @@ class Deep_Q_Snake(Snake):
         state_vector = np.array(state_vector)
         return state_vector
 
-    def update_replay_buffer(self, state_vector: list, reward: int):
+    def update_replay_buffer(self, state_vector: list, action: int, reward: int, state_prime_vector: list,
+                             terminal_state: bool):
         """
         Update the `np.ndarray` containing tuples of state vectors and their respective rewards
 
         :param state_vector: State vector for current state at which the agent is located
+        :param action: Action taken from state described in state_vector
         :param reward: Reward value for entering the current state
+        :param state_prime_vector: State vector for next state dictated by action at which the agent will be located
+        :param terminal_state: Boolean value to indicate whether or not the current state is a terminal state
         :return:
         """
-        self.__states_replay_buffer = np.vstack((self.__states_replay_buffer, state_vector))
-        self.__rewards_replay_buffer = np.vstack((self.__rewards_replay_buffer, reward))
+        self.__state_replay_buffer = np.vstack((self.__state_replay_buffer, state_vector))
+        self.__action_replay_buffer = np.vstack((self.__action_replay_buffer, action))
+        self.__reward_replay_buffer = np.vstack((self.__reward_replay_buffer, reward))
+        self.__state_prime_replay_buffer = np.vstack((self.__state_prime_replay_buffer, state_prime_vector))
+        self.__terminal_replay_buffer = np.vstack((self.__terminal_replay_buffer, terminal_state))
 
     def summarize_dql_network(self):
         """
@@ -367,24 +387,76 @@ class Deep_Q_Snake(Snake):
         """
         Through playing the game and collecting samples of actions
 
-        :param epochs:
-        :param verbose:
+        :param epochs: Number of epochs of training to subject the network to for each episode
+        :param verbose: Boolean flag indicating whether or not to display information about training
         :return:
         """
+        # Assert that the input values for verbosity matches that which is expected
         assert(verbose in [0, 1])
 
+        # Initialize an empty array of length 3 to store Q value approximations for each state vector
         target_Qs = np.array([]).reshape(0, 3)
-        for state, reward in zip(self.__states_replay_buffer, self.__rewards_replay_buffer):
+
+        # Loop through each of the replay buffers values (zipped together to preserve order)
+        for state, reward, action, state_prime, terminal in zip(self.__state_replay_buffer,
+                                                                self.__reward_replay_buffer,
+                                                                self.__action_replay_buffer,
+                                                                self.__state_prime_replay_buffer,
+                                                                self.__terminal_replay_buffer):
+            # Ensure that the state vector is in the correct shape to be passed into the network
             if state.shape[0] != reward.shape[0]:
                 state = state.reshape(1, -1)
-            Q_vals = self.state_action_q_values(state)[0]
-            target = (reward + self.__gamma * np.amax(Q_vals))
-            target_q_val = self.state_action_q_values(state)
-            target_q_val[0][np.argmax(self.state_action_q_values(state))] = target
-            target_Qs = np.vstack((target_Qs, target_q_val))
-            # self.__dql_model.fit(x=state, y=target_q_val)
+            # Ensure that the state prime vector is in the correct shape to be passed into the network
+            if state_prime.shape[0] != reward.shape[0]:
+                state_prime = state_prime.reshape(1, -1)
 
-        self.__dql_model.fit(x=self.__states_replay_buffer, y=target_Qs, batch_size=800, epochs=epochs, verbose=verbose)
+            # Utilize the Deep Q Network as the Q-value policy to predict action to take at current state
+            state_Q_vals = self.state_action_q_values(state)[0]
+            if not terminal:
+                # Utilize the Deep Q Network as the Q-value policy to predict action to take at next state
+                state_prime_Q_vals = self.state_action_q_values(state_prime)[0]
 
-        self.__states_replay_buffer = np.array([]).reshape(0, 11)
-        self.__rewards_replay_buffer = np.array([]).reshape(0, 1)
+                # Calculate the Q value update from the action selected for the next state
+                target_Q_val = (reward + (self.__gamma * np.max(state_prime_Q_vals)))
+            else:
+                target_Q_val = reward
+
+            # Update the Q val for the action taken at current time step to be the calculated Q value update
+            state_Q_vals[int(action)] = target_Q_val
+            state_Q_vals = state_Q_vals.reshape(1, -1)
+
+            if verbose == 1:
+                print(state)
+                print(state_Q_vals)
+
+            # Train the Deep Q Network on the current observable state and the target Q values
+            self.__dql_model.fit(x=state, y=state_Q_vals, epochs=epochs,
+                                 verbose=verbose)
+
+        # Reset all of the replay buffers at the end of each episodes training stage
+        self.__state_replay_buffer = np.array([]).reshape(0, 11)
+        self.__action_replay_buffer = np.array([]).reshape(0, 1)
+        self.__reward_replay_buffer = np.array([]).reshape(0, 1)
+        self.__state_prime_replay_buffer = np.array([]).reshape(0, 11)
+        self.__terminal_replay_buffer = np.array([]).reshape(0, 1)
+
+    def save_model(self, outdir: str = './dql_snake.h5'):
+        """
+        Save the weights of the trained model to a `*.h5` file
+
+        :param outdir: Path to where the desired output `*.h5` file should be saved
+        :return:
+        """
+        assert(outdir is not None)
+        self.__dql_model.save(filepath=outdir)
+
+    def load_weights(self, model_weights: str):
+        """
+        Load a pre-trained version of the model from `*.h5` file
+
+        :param model_weights: Path to the desired model weights to load
+        :return:
+        """
+        assert(model_weights is not None)
+        assert(os.path.exists(model_weights))
+        self.__dql_model.load_weights(filepath=model_weights)
