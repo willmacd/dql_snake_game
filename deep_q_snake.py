@@ -1,5 +1,6 @@
 """ Child class of Snake to be used for Deep Q-Learning implementation of Snake game """
 import os
+import random
 
 import numpy as np
 import tensorflow as tf
@@ -18,7 +19,7 @@ class Deep_Q_Snake(Snake):
         super(Deep_Q_Snake, self).__init__(block_size=block_size)
 
         # Override the snake speed attribute to make training process significantly faster
-        self.speed = 20
+        self.speed = 30
 
         # Define the rewards for specified actions
         self.food_reward = 10.
@@ -29,7 +30,7 @@ class Deep_Q_Snake(Snake):
         self.__epsilon = float(1 / 75)
 
         # Define discount factor
-        self.__gamma = 0.75
+        self.__gamma = 0.95
 
         self.__state_replay_buffer = np.array([]).reshape(0, 11)
         self.__action_replay_buffer = np.array([]).reshape(0, 1)
@@ -150,35 +151,37 @@ class Deep_Q_Snake(Snake):
         danger_right = 0
 
         # If Snake's location is against the leftmost border
-        if self.rect.x == self.block_size:
+        if self.rect.x <= self.block_size:
             # And Snake's trajectory is moving left
             if self.trajectory.x < 0:
                 # Snake is moving directly toward the border, set `danger_straight` to 1
                 danger_straight = 1
-        # If Snake's location is against the rightmost border (one away form border since triggering occurs upon
-        # entering the next state)
-        elif self.rect.x == (window_width - self.block_size - self.block_size):
+
+        # If Snake's location is against the rightmost border (zero based indexing for board locations means outer
+        # bounds of board are 380 not 400)
+        elif self.rect.x >= (window_width - self.block_size - self.block_size):
             # And Snake's trajectory is moving right
             if self.trajectory.x > 0:
                 # Snake is moving directly toward the border, set `danger_straight` to 1
                 danger_straight = 1
 
         # If Snake's location is against the topmost border
-        if self.rect.y == self.block_size:
+        if self.rect.y <= self.block_size:
             # And Snake's trajectory is moving up
             if self.trajectory.y < 0:
                 # Snake is moving directly toward the border, set `danger_straight` to 1
                 danger_straight = 1
-        # If Snake's location is against the bottommost border (one away form border since triggering occurs upon
-        # entering the next state)
-        elif self.rect.y == (window_height - self.block_size - self.block_size):
+
+        # If Snake's location is against the bottommost border (zero based indexing for board locations means outer
+        # bounds of board are 380 not 400)
+        elif self.rect.y >= (window_height - self.block_size - self.block_size):
             # And Snake's trajectory is moving down
             if self.trajectory.y > 0:
                 # Snake is moving directly toward the border, set `danger_straight` to 1
                 danger_straight = 1
 
         # If Snake's location is against the leftmost border
-        if self.rect.x == 0:
+        if self.rect.x <= 0:
             # And Snake's trajectory is moving up
             if self.trajectory.y < 0:
                 # Snake is moving up along leftmost border, set `danger_left` to 1
@@ -198,7 +201,7 @@ class Deep_Q_Snake(Snake):
                 # Snake is moving down along the rightmost border, set `danger_left` to 1
                 danger_left = 1
 
-        if self.rect.y == 0:
+        if self.rect.y <= 0:
             # And Snake's trajectory is moving left
             if self.trajectory.x < 0:
                 # Snake is moving left along the topmost border, set `danger_right` to 1
@@ -218,13 +221,13 @@ class Deep_Q_Snake(Snake):
                 # Snake is moving right along the bottommost border, set `danger_right` to 1
                 danger_right = 1
 
-        # Check all of the cells in the Snake's body
-        for cell in self.entire_snake[:-1]:
+        # Check all of the cells in the Snake's body (physically impossible for snake to run into cell directly behind
+        # head; therefore, don't allow it to throw danger warnings)
+        for cell in self.entire_snake[:-2]:
             # If a body cell is located one cell to the right of the Snake's head
             if cell == [self.rect.x + self.block_size + self.block_size, self.rect.y]:
                 # And Snake's trajectory is moving right
                 if self.trajectory.x > 0:
-                    print("Danger Straight")
                     # Set `danger_straight` to 1
                     danger_straight = 1
 
@@ -232,7 +235,6 @@ class Deep_Q_Snake(Snake):
             if cell == [self.rect.x - self.block_size - self.block_size, self.rect.y]:
                 # And Snake's trajectory is moving left
                 if self.trajectory.x < 0:
-                    print("Danger Straight")
                     # Set `danger_straight` to 1
                     danger_straight = 1
 
@@ -240,7 +242,6 @@ class Deep_Q_Snake(Snake):
             if cell == [self.rect.x, self.rect.y + self.block_size + self.block_size]:
                 # And Snake's trajectory is moving down
                 if self.trajectory.y > 0:
-                    print("Danger Straight")
                     # Set `danger_straight` to 1
                     danger_straight = 1
 
@@ -248,12 +249,11 @@ class Deep_Q_Snake(Snake):
             if cell == [self.rect.x, self.rect.y - self.block_size - self.block_size]:
                 # And Snake's trajectory is moving up
                 if self.trajectory.y < 0:
-                    print("Danger Straight")
                     # Set `danger_straight` to 1
                     danger_straight = 1
 
             # If a body cell is located one cell to the right of the Snake's head
-            if cell == [self.rect.x + self.block_size, self.rect.y]:
+            if cell == [self.rect.x + self.block_size, self.rect.y + self.trajectory.y]:
                 # And Snake's trajectory is moving up
                 if self.trajectory.y < 0:
                     # Set `danger_right` to 1
@@ -264,7 +264,7 @@ class Deep_Q_Snake(Snake):
                     danger_left = 1
 
             # If a body cell is located one cell to the left of the Snake's head
-            if cell == [self.rect.x - self.block_size, self.rect.y]:
+            if cell == [self.rect.x - self.block_size, self.rect.y + self.trajectory.y]:
                 # And Snake's trajectory is moving up
                 if self.trajectory.y < 0:
                     # Set `danger_left` to 1
@@ -275,7 +275,7 @@ class Deep_Q_Snake(Snake):
                     danger_right = 1
 
             # If a body cell is located one cell below the Snake's head
-            if cell == [self.rect.x, self.rect.y + self.block_size]:
+            if cell == [self.rect.x + self.trajectory.x, self.rect.y + self.block_size]:
                 # And Snake's trajectory is moving left
                 if self.trajectory.x < 0:
                     # Set `danger_left` to 1
@@ -286,7 +286,7 @@ class Deep_Q_Snake(Snake):
                     danger_right = 1
 
             # If a body cell is located one cell above the Snake's head
-            if cell == [self.rect.x, self.rect.y - self.block_size]:
+            if cell == [self.rect.x + self.trajectory.x, self.rect.y - self.block_size]:
                 # And Snake's trajectory is moving left
                 if self.trajectory.x < 0:
                     # Set `danger_right` to 1
@@ -317,19 +317,19 @@ class Deep_Q_Snake(Snake):
         state_vector.append(moving_down)
 
         # Set `food_left` to 1 if the X location of the Snake is greater than that of the food; otherwise, set to 0
-        food_left = 1 if self.rect.x > food_loc.x else 0
+        food_left = 1 if self.rect.x + self.trajectory.x > food_loc.x else 0
         state_vector.append(food_left)
 
         # Set `food_right` to 1 if the X location of the Snake is less than that of the food; otherwise, set to 0
-        food_right = 1 if self.rect.x < food_loc.x else 0
+        food_right = 1 if self.rect.x + self.trajectory.x < food_loc.x else 0
         state_vector.append(food_right)
 
         # Set `food_up` to 1 if the Y location of the Snake is greater than that of the food; otherwise, set to 0
-        food_up = 1 if self.rect.y > food_loc.y else 0
+        food_up = 1 if self.rect.y + self.trajectory.y > food_loc.y else 0
         state_vector.append(food_up)
 
         # Set `food_down` to 1 if the Y location of the Snake is less than that of the food; otherwise, set to0
-        food_down = 1 if self.rect.y < food_loc.y else 0
+        food_down = 1 if self.rect.y + self.trajectory.y < food_loc.y else 0
         state_vector.append(food_down)
 
         # Convert to `numpy.ndarray` for passing into the neural network
@@ -383,7 +383,7 @@ class Deep_Q_Snake(Snake):
         """
         return self.__dql_model.predict(x=state_vector)
 
-    def train(self, epochs: int = 1, verbose: int = 0):
+    def train(self, epochs: int = 1, batch_size=800, verbose: int = 0):
         """
         Through playing the game and collecting samples of actions
 
@@ -394,8 +394,16 @@ class Deep_Q_Snake(Snake):
         # Assert that the input values for verbosity matches that which is expected
         assert(verbose in [0, 1])
 
-        # Initialize an empty array of length 3 to store Q value approximations for each state vector
-        target_Qs = np.array([]).reshape(0, 3)
+        target_Q_vals = np.array([]).reshape(0, 3)
+
+        '''# Sample 75% of the episodic replay buffers for the training mini batch
+        mini_batch_samples = [i for i in range(int(len(self.__state_replay_buffer)*0.75))]
+        self.__state_replay_buffer = np.array([self.__state_replay_buffer[index] for index in mini_batch_samples])
+        self.__reward_replay_buffer = np.array([self.__reward_replay_buffer[index] for index in mini_batch_samples])
+        self.__action_replay_buffer = np.array([self.__action_replay_buffer[index] for index in mini_batch_samples])
+        self.__state_prime_replay_buffer = np.array([self.__state_prime_replay_buffer[index]
+                                                     for index in mini_batch_samples])
+        self.__terminal_replay_buffer = np.array([self.__terminal_replay_buffer[index] for index in mini_batch_samples])'''
 
         # Loop through each of the replay buffers values (zipped together to preserve order)
         for state, reward, action, state_prime, terminal in zip(self.__state_replay_buffer,
@@ -417,21 +425,20 @@ class Deep_Q_Snake(Snake):
                 state_prime_Q_vals = self.state_action_q_values(state_prime)[0]
 
                 # Calculate the Q value update from the action selected for the next state
-                target_Q_val = (reward + (self.__gamma * np.max(state_prime_Q_vals)))
+                action_target_Q_val = (reward + (self.__gamma * np.max(state_prime_Q_vals)))
             else:
-                target_Q_val = reward
+                action_target_Q_val = reward
 
             # Update the Q val for the action taken at current time step to be the calculated Q value update
-            state_Q_vals[int(action)] = target_Q_val
+            state_Q_vals[int(action)] = action_target_Q_val
             state_Q_vals = state_Q_vals.reshape(1, -1)
 
-            if verbose == 1:
-                print(state)
-                print(state_Q_vals)
+            # Append the state target Q values to the list of target Q vals to be used in the training process
+            target_Q_vals = np.vstack([target_Q_vals, state_Q_vals])
 
-            # Train the Deep Q Network on the current observable state and the target Q values
-            self.__dql_model.fit(x=state, y=state_Q_vals, epochs=epochs,
-                                 verbose=verbose)
+        # Train the Deep Q Network on the current observable state and the target Q values
+        self.__dql_model.fit(x=self.__state_replay_buffer, y=target_Q_vals, epochs=epochs, batch_size=batch_size,
+                             verbose=verbose)
 
         # Reset all of the replay buffers at the end of each episodes training stage
         self.__state_replay_buffer = np.array([]).reshape(0, 11)

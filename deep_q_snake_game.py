@@ -1,10 +1,10 @@
 """ Main file for Deep Q-Learning Snake Game Implementation """
 import sys
 import math
-import time
+import pygame
 
 import numpy as np
-import pygame
+import matplotlib.pyplot as plt
 
 from deep_q_snake import Deep_Q_Snake
 from food import FoodPellet
@@ -19,9 +19,9 @@ BLOCK_SIZE = 20
 global SCREEN, CLOCK
 
 # Initialize global hyper-parameters
-EPISODES = 500
-MAX_STEPS_SINCE_FOOD = 200
-LR = 0.000075
+EPISODES = 2000
+MAX_STEPS_SINCE_FOOD = 199
+LR = 0.00005
 
 
 if __name__ == '__main__':
@@ -34,7 +34,7 @@ if __name__ == '__main__':
     CLOCK = pygame.time.Clock()
 
     snake = Deep_Q_Snake()
-    snake.load_weights("./saved_models/initial_train/dql_snake.h5")
+    snake.load_weights("./saved_models/updated_state_space/1620episodes/dql_snake.h5")
     snake.compile(learning_rate=LR)
 
     # Update display and set a Window name for the game
@@ -43,6 +43,7 @@ if __name__ == '__main__':
 
     best_score = 0
     spin_out_count = 0
+    score_per_episode = []
     for episode in range(1, EPISODES+1):
         print("Episode {}".format(episode))
         # Define an instance of the Food Pellet and initialize its locations within the game board
@@ -136,16 +137,26 @@ if __name__ == '__main__':
         SCREEN.blit(game_over_message, [WINDOW_WIDTH / 4, WINDOW_HEIGHT / 4])
         pygame.display.update()
 
-        '''
         # To train the model, remove the block comment quotations above this line
         if snake.snake_length-1 > best_score:
             best_score = snake.snake_length-1
             snake.save_model()
 
-        snake.train(epochs=1, verbose=1)    # '''
+        # Append the score achieved for this respective episode of training
+        score_per_episode.append(snake.snake_length-1)
+
+        # snake.train(epochs=1, batch_size=800, verbose=0)    # '''
 
     # Exit the game and finish execution
     pygame.quit()
     print("Best Achieved Score: {}".format(best_score))
     print("Agent Spun Out {} Times".format(spin_out_count))
+
+    np.save("{}episodes_{}lr.npy".format(EPISODES, LR))
+
+    plt.plot(score_per_episode)
+    plt.title("Score Per Episode of Training")
+    plt.xlabel("Episode")
+    plt.ylabel("Game Score")
+    plt.show()
     sys.exit()
