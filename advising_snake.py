@@ -52,14 +52,14 @@ class Advising_Snake(Deep_Q_Snake):
         head2 = tf.keras.layers.Dense(3, activation='softmax')(layer3)
         head3 = tf.keras.layers.Dense(3, activation='softmax')(layer3)
 
-        self.__dql_model = tf.keras.models.Model(inputs=input, outputs=[head1, head2, head2])
+        self.__dql_model = tf.keras.models.Model(inputs=input, outputs=[head1, head2, head3])
 
     def minibatch(self, batch_size):
         """
         Minibatch for the update
 
         :param: batch size
-        :return: encoded action
+        :return: 
         """
         #add len here
         samples = np.floor(np.random.random((self.__state_replay_buffer,)) * batch_size)
@@ -79,7 +79,7 @@ class Advising_Snake(Deep_Q_Snake):
         For one hot encoding the actions 
 
         :param: action
-        :return: encoded action
+        :return: 
         """
         indices = [0, 1, 2]
         depth = len(action)
@@ -87,9 +87,9 @@ class Advising_Snake(Deep_Q_Snake):
 
         return action
     
-    def target_network(self):
+    def target_network(self, mini_sprime):
 
-        target_Q = np.amax(self.state_action_q_values(self.mini_sprime), axis = 0)
+        target_Q = np.amax(self.state_action_q_values(mini_sprime), axis = 0)
 
         return target_Q
 
@@ -159,8 +159,12 @@ class Advising_Snake(Deep_Q_Snake):
     #TODO: fill this
     def uncertainty_estimator(self, state_vector):
 
-        pass
-    
+        for i in range(self.head_number):
+            self.__dql_model.outputs[i]
+            uncertainty = np.var(self.state_action_q_values(state_vector))
+
+            return uncertainty
+        
     def train(self, epochs: int = 1, verbose: int = 0):
         """
         Through playing the game and collecting samples of actions
@@ -175,13 +179,15 @@ class Advising_Snake(Deep_Q_Snake):
         # Initialize an empty array of length 3 to store Q value approximations for each state vector
         target_Qs = np.array([]).reshape(0, 3)
 
+        
+
         # call minibarch and isde the zip have minibatch
         # Loop through each of the replay buffers values (zipped together to preserve order)
-        for state, reward, action, state_prime, terminal in zip(self.__state_replay_buffer,
-                                                                self.__reward_replay_buffer,
-                                                                self.__action_replay_buffer,
-                                                                self.__state_prime_replay_buffer,
-                                                                self.__terminal_replay_buffer):
+        for state, reward, action, state_prime, terminal in zip(self.minibatch( self.__state_replay_buffer,
+                                                                                self.__reward_replay_buffer,
+                                                                                self.__action_replay_buffer,
+                                                                                self.__state_prime_replay_buffer,
+                                                                                self.__terminal_replay_buffer)):
             # Ensure that the state vector is in the correct shape to be passed into the network
             if state.shape[0] != reward.shape[0]:
                 state = state.reshape(1, -1)
@@ -189,8 +195,13 @@ class Advising_Snake(Deep_Q_Snake):
             if state_prime.shape[0] != reward.shape[0]:
                 state_prime = state_prime.reshape(1, -1)
 
+            action = self.one_hot_encoding(action)
+            target_Qs = self.target_network(state_prime)
+
+
             # Utilize the Deep Q Network as the Q-value policy to predict action to take at current state
             state_Q_vals = self.state_action_q_values(state)[0]
+
             if not terminal:
                 # Utilize the Deep Q Network as the Q-value policy to predict action to take at next state
                 state_prime_Q_vals = self.state_action_q_values(state_prime)[0]
