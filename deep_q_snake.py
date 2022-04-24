@@ -397,6 +397,7 @@ class Deep_Q_Snake(Snake):
         # Initialize an empty array of length 3 to store Q value approximations for each state vector
         target_Qs = np.array([]).reshape(0, 3)
 
+        # call minibarch and isde the zip have minibatch
         # Loop through each of the replay buffers values (zipped together to preserve order)
         for state, reward, action, state_prime, terminal in zip(self.__state_replay_buffer,
                                                                 self.__reward_replay_buffer,

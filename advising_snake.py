@@ -6,11 +6,10 @@ import numpy as np
 import tensorflow as tf
 import random
 from deep_q_snake import Deep_Q_Snake
-
 from snake import Snake
 
 
-class Advising_Snake(Snake):
+class Advising_Snake(Deep_Q_Snake):
     def __init__(self, block_size: int = 20):
         """
         Constructor for Deep Q Learning Snake; defining all functionality of the Deep Q Network child of the base game
@@ -44,24 +43,6 @@ class Advising_Snake(Snake):
         self.__terminal_replay_buffer = np.array([]).reshape(0, 1)
 
         #self.mini_sprime = []
-
-        #TODO change here for mutliple heads and minibatch entry
-        # Define Deep Q-Learning model architecture
-        # Initialize a sequential neural network architecture and its input layer
-        #self.__dql_model = tf.keras.Sequential()
-        #self.__dql_model.add(tf.keras.layers.InputLayer(input_shape=(11, )))
-        # Initialize the first fully connected layer followed by ReLU activation and Dropout
-        # This is the backbone
-        #self.__dql_model.add(tf.keras.layers.Dense(100, activation='relu'))
-        # self.__dql_model.add(tf.keras.layers.Dropout(0.3))
-        # Initialize the second fully connected layer followed by ReLU activation and Dropout
-        #self.__dql_model.add(tf.keras.layers.Dense(100, activation='relu'))
-        # self.__dql_model.add(tf.keras.layers.Dropout(0.3))
-        # Initialize the third fully connected layer followed by ReLU activation and Dropout
-        #self.__dql_model.add(tf.keras.layers.Dense(100, activation='relu'))
-        # self.__dql_model.add(tf.keras.layers.Dropout(0.3))
-        # Initialize the output fully connected layer followed by Softmax activation
-        #self.__dql_model.add(tf.keras.layers.Dense(3, activation='softmax'))
 
         input = tf.keras.layers.Input(shape = (11, ))
         layer1 = tf.keras.layers.Dense(100, activation='relu')(input)
@@ -108,35 +89,132 @@ class Advising_Snake(Snake):
     
     def target_network(self):
 
-        target_Q = tf.argmax(Deep_Q_Snake.state_action_q_values(self.mini_sprime))
+        target_Q = np.amax(self.state_action_q_values(self.mini_sprime), axis = 0)
 
         return target_Q
 
-    def availability(percent=75):
+    def availability(self, percent=75):
         return random.randrange(100) < percent
 
-    #TODO: fix
-    def sample_selection(self):
+    def advising_update(self, action):
         """
-        For updating each head for different samples to reduce bias. Samples |D|h numbers between 
-        {0, 1} with fixed probability
+        Update the trajectory of the snake at a given point in time based on the determined action from the DQL network
 
-        :return: minibatches of replay buffers except terminal
+        :param food_loc: Location of the food within the game screen
+        :param window_width: Width of the game window in which the snake can move
+        :param window_height: Height of the game window in which the snake can move
+        :return:
         """
-        # samples = np.random.choice(len(self.__state_replay_buffer), batch_size, replace=False)
-        # Rnadomly sampling some batches from experience bugger
-        samples = np.floor(np.random.random((self.__state_replay_buffer,))*self.head_number)
 
-        # select the experience from the sampled index
-        mini_state = [self.__state_replay_buffer[int(i)] for i in samples]
-        mini_reward = [self.__reward_replay_buffer[int(i)] for i in samples]
-        mini_action = [self.__action_replay_buffer[int(i)] for i in samples]
-       # mini_sprime = [self.__state_prime_replay_buffer[int(i)] for i in samples]
-        mini_terminal = [self.__terminal_replay_buffer[int(i)] for i in samples]
+        # If selected action is to turn left (action 1)
+        if action == 1:
+            # And current trajectory is moving West
+            if self.trajectory.x < 0:
+                # Change trajectory to be moving South
+                self.trajectory.x = 0
+                self.trajectory.y = self.block_size
+            # And current trajectory is moving East
+            elif self.trajectory.x > 0:
+                # Change trajectory to be moving North
+                self.trajectory.x = 0
+                self.trajectory.y = -self.block_size
+            # And current trajectory is moving North
+            elif self.trajectory.y < 0:
+                # Change trajectory to be moving West
+                self.trajectory.x = -self.block_size
+                self.trajectory.y = 0
+            # And current trajectory is moving South
+            elif self.trajectory.y > 0:
+                # Change trajectory to be moving East
+                self.trajectory.x = self.block_size
+                self.trajectory.y = 0
+        # If selected action is to turn right (action 2)
+        elif action == 2:
+            # And current trajectory is moving West
+            if self.trajectory.x < 0:
+                # Change trajectory to be moving North
+                self.trajectory.x = 0
+                self.trajectory.y = -self.block_size
+            # And current trajectory is moving East
+            elif self.trajectory.x > 0:
+                # Change trajectory to be moving South
+                self.trajectory.x = 0
+                self.trajectory.y = self.block_size
+            # And current trajectory is moving North
+            elif self.trajectory.y < 0:
+                # Change trajectory to be moving East
+                self.trajectory.x = self.block_size
+                self.trajectory.y = 0
+            # And current trajectory is moving South
+            elif self.trajectory.y > 0:
+                # Change trajectory to be moving West
+                self.trajectory.x = -self.block_size
+                self.trajectory.y = 0
+        # Otherwise, selected action is to continue straight (action 0)
+        else:
+            # Continue with the current specified trajectory
+            self.trajectory = self.trajectory
+        return action
 
-        return mini_state, mini_reward, mini_action, mini_sprime, mini_terminal
     #TODO: fill this
     def uncertainty_estimator(self, state_vector):
 
         pass
+    
+    def train(self, epochs: int = 1, verbose: int = 0):
+        """
+        Through playing the game and collecting samples of actions
 
+        :param epochs: Number of epochs of training to subject the network to for each episode
+        :param verbose: Boolean flag indicating whether or not to display information about training
+        :return:
+        """
+        # Assert that the input values for verbosity matches that which is expected
+        assert(verbose in [0, 1])
+
+        # Initialize an empty array of length 3 to store Q value approximations for each state vector
+        target_Qs = np.array([]).reshape(0, 3)
+
+        # call minibarch and isde the zip have minibatch
+        # Loop through each of the replay buffers values (zipped together to preserve order)
+        for state, reward, action, state_prime, terminal in zip(self.__state_replay_buffer,
+                                                                self.__reward_replay_buffer,
+                                                                self.__action_replay_buffer,
+                                                                self.__state_prime_replay_buffer,
+                                                                self.__terminal_replay_buffer):
+            # Ensure that the state vector is in the correct shape to be passed into the network
+            if state.shape[0] != reward.shape[0]:
+                state = state.reshape(1, -1)
+            # Ensure that the state prime vector is in the correct shape to be passed into the network
+            if state_prime.shape[0] != reward.shape[0]:
+                state_prime = state_prime.reshape(1, -1)
+
+            # Utilize the Deep Q Network as the Q-value policy to predict action to take at current state
+            state_Q_vals = self.state_action_q_values(state)[0]
+            if not terminal:
+                # Utilize the Deep Q Network as the Q-value policy to predict action to take at next state
+                state_prime_Q_vals = self.state_action_q_values(state_prime)[0]
+
+                # Calculate the Q value update from the action selected for the next state
+                target_Q_val = (reward + (self.__gamma * np.max(state_prime_Q_vals)))
+            else:
+                target_Q_val = reward
+
+            # Update the Q val for the action taken at current time step to be the calculated Q value update
+            state_Q_vals[int(action)] = target_Q_val
+            state_Q_vals = state_Q_vals.reshape(1, -1)
+
+            if verbose == 1:
+                print(state)
+                print(state_Q_vals)
+
+            # Train the Deep Q Network on the current observable state and the target Q values
+            self.__dql_model.fit(x=state, y=state_Q_vals, epochs=epochs,
+                                 verbose=verbose)
+
+        # Reset all of the replay buffers at the end of each episodes training stage
+        self.__state_replay_buffer = np.array([]).reshape(0, 11)
+        self.__action_replay_buffer = np.array([]).reshape(0, 1)
+        self.__reward_replay_buffer = np.array([]).reshape(0, 1)
+        self.__state_prime_replay_buffer = np.array([]).reshape(0, 11)
+        self.__terminal_replay_buffer = np.array([]).reshape(0, 1)

@@ -38,7 +38,10 @@ if __name__ == '__main__':
     CLOCK = pygame.time.Clock()
 
     snake = Advising_Snake()
-    snake.load_weights("./saved_models/initial_train/dql_snake.h5")
+    dqn_Snake = Deep_Q_Snake()
+    
+    dqn_Snake.load_weights("./saved_models/initial_train/dql_snake.h5")
+    dqn_Snake.compile(learning_rate=LR)
     snake.compile(learning_rate=LR)
 
     # Update display and set a Window name for the game
@@ -62,7 +65,8 @@ if __name__ == '__main__':
         snake.rect.y = math.floor((WINDOW_HEIGHT / 2) - 20)
 
         # Derive the observable state vector based on the surrounding environment information of the snake
-        state_vector = Deep_Q_Snake.state_vector(food_loc=food.rect, window_width=WINDOW_WIDTH, window_height=WINDOW_HEIGHT)
+        # Observe s line 3
+        state_vector = snake.state_vector(food_loc=food.rect, window_width=WINDOW_WIDTH, window_height=WINDOW_HEIGHT)
 
         # Loop until the game ends
         steps_since_food = 0
@@ -80,14 +84,27 @@ if __name__ == '__main__':
                 if event.type == pygame.QUIT:
                     game_over = True
 
-            # Update Snake asset's trajectory based on keyboard inputs (this will later become DQL policy inputs)
-            action = Deep_Q_Snake.dql_update(food_loc=food.rect, window_width=WINDOW_WIDTH, window_height=WINDOW_HEIGHT)
+            #TODO: fill
+            # Check epistemic uncertainty for the current state
+            uncertainty = snake.uncertainty_estimator(state_vector)
+
+            if uncertainty >= HIGH_UNCERTAINTY and available:
+                # action = ddemonstrator policy
+                action = snake.advising_update(action)
+            
+            else:
+            
+                # apply action and observe s', r
+                #update Q^ and plicy wiht (s, a, r ,s')
+                #end for
+                # Update Snake asset's trajectory based on keyboard inputs (this will later become DQL policy inputs)
+                action = np.argmax(dqn_Snake.state_action_q_values(state_vector))
 
             # Move the snake to its new location and check whether a collision occurs with the snakes tail
             game_over = snake.move_snake()
 
             # Generate the state vector for the next state that the snake agent visits
-            state_prime_vector = Deep_Q_Snake.state_vector(food_loc=food.rect, window_width=WINDOW_WIDTH,
+            state_prime_vector = snake.state_vector(food_loc=food.rect, window_width=WINDOW_WIDTH,
                                                     window_height=WINDOW_HEIGHT)
 
             # If snake leaves the bounds of the board... game over
@@ -113,22 +130,8 @@ if __name__ == '__main__':
                 steps_since_food += 1
 
             # Record state, action, reward, and state_prime all to replay buffers to be sampled from for training
-            Deep_Q_Snake.update_replay_buffer(state_vector=state_vector, action=action, reward=reward,
+            snake.update_replay_buffer(state_vector=state_vector, action=action, reward=reward,
                                        state_prime_vector=state_prime_vector, terminal_state=game_over)
-
-            # Check epistemic uncertainty for the current state
-            uncertainty = snake.uncertainty_estimator(state)
-
-            if uncertainty >= HIGH_UNCERTAINTY and available:
-                # action = ddemonstrator policy
-                pass
-            
-            else:
-                # usual exploration
-                pass
-            # apply action and observe s', r
-            #update Q^ and plicy wiht (s, a, r ,s')
-            #end for
         
 
             # Fill in the background of the game in order to overwrite previous food and Snake states
