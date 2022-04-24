@@ -2,6 +2,7 @@
 import sys
 import math
 import time
+from matplotlib.style import available
 
 import numpy as np
 import pygame
@@ -23,6 +24,8 @@ global SCREEN, CLOCK
 EPISODES = 500
 MAX_STEPS_SINCE_FOOD = 200
 LR = 0.000075
+
+HIGH_UNCERTAINTY = 0.1
 
 
 if __name__ == '__main__':
@@ -112,6 +115,21 @@ if __name__ == '__main__':
             # Record state, action, reward, and state_prime all to replay buffers to be sampled from for training
             Deep_Q_Snake.update_replay_buffer(state_vector=state_vector, action=action, reward=reward,
                                        state_prime_vector=state_prime_vector, terminal_state=game_over)
+
+            # Check epistemic uncertainty for the current state
+            uncertainty = snake.uncertainty_estimator(state)
+
+            if uncertainty >= HIGH_UNCERTAINTY and available:
+                # action = ddemonstrator policy
+                pass
+            
+            else:
+                # usual exploration
+                pass
+            # apply action and observe s', r
+            #update Q^ and plicy wiht (s, a, r ,s')
+            #end for
+        
 
             # Fill in the background of the game in order to overwrite previous food and Snake states
             SCREEN.fill(BACKGROUND)
