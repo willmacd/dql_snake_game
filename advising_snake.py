@@ -47,14 +47,14 @@ class Advising_Snake(Deep_Q_Snake):
         #self.mini_sprime = []
 
         self.input = tf.keras.layers.Input(shape = (11, ))
-        self.layer1 = tf.keras.layers.Dense(100, activation='relu')(input)
+        self.layer1 = tf.keras.layers.Dense(100, activation='relu')(self.input)
         self.layer2 = tf.keras.layers.Dense(100, activation='relu')(self.layer1)
         self.layer3 = tf.keras.layers.Dense(100, activation='relu')(self.layer2)
         self.head1 = tf.keras.layers.Dense(3, activation='softmax')(self.layer3)
         self.head2 = tf.keras.layers.Dense(3, activation='softmax')(self.layer3)
         self.head3 = tf.keras.layers.Dense(3, activation='softmax')(self.layer3)
 
-        self.__dql_model = tf.keras.models.Model(inputs=input, outputs=[self.head1, self.head2, self.head3])
+        self.__dql_model = tf.keras.models.Model(inputs=self.input, outputs=[self.head1, self.head2, self.head3])
 
     def minibatch(self, batch_size):
         """
@@ -227,12 +227,10 @@ class Advising_Snake(Deep_Q_Snake):
             for i in range(self.head_number):
 
                 if not terminal:
-                    
-                    #average should be a list 1x3 of the averaged actions
-                    average = tf.keras.layers.Average()([self.head1, self.head2, self.head3])
 
                     # Utilize the Deep Q Network as the Q-value policy to predict action to take at next state
-                    state_prime_Q_vals = self.state_action_q_values(state_prime)[0]
+                    total += self.state_action_q_values(state_prime)[i]
+                    average = total/self.head_number
 
                     # Calculate the Q value update from the action selected for the next state
                     target_Q_val = (reward + (self.__gamma * np.max(average)))

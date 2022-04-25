@@ -84,7 +84,7 @@ if __name__ == '__main__':
                 if event.type == pygame.QUIT:
                     game_over = True
 
-            #TODO: fill
+           
             # Check epistemic uncertainty for the current state
             uncertainty = snake.uncertainty_estimator(state_vector)
 
