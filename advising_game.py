@@ -93,6 +93,7 @@ if __name__ == '__main__':
                 # If there is high uncertainty and the agent is available ask for advice
                 # From DQN Snake experience
                 action = np.argmax(dqn_Snake.state_action_q_values(state_vector))
+                snake.advising_update(action=action)
             
             else:
                 
@@ -131,7 +132,6 @@ if __name__ == '__main__':
             # Record state, action, reward, and state_prime all to replay buffers to be sampled from for training
             snake.update_replay_buffer(state_vector=state_vector, action=action, reward=reward,
                                        state_prime_vector=state_prime_vector, terminal_state=game_over)
-        
 
             # Fill in the background of the game in order to overwrite previous food and Snake states
             SCREEN.fill(BACKGROUND)
@@ -162,7 +162,7 @@ if __name__ == '__main__':
             best_score = snake.snake_length-1
             snake.save_model()
 
-        snake.train(epochs=1, verbose=1)    
+        snake.train(epochs=1, verbose=0)
 
     # Exit the game and finish execution
     pygame.quit()

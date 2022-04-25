@@ -1,7 +1,6 @@
 """ Child class of Snake to be used for Action Advising implementation of Snake game """
 import os
-from random import random
-from statistics import variance
+# from random import random
 
 import numpy as np
 import tensorflow as tf
@@ -38,23 +37,15 @@ class Advising_Snake(Deep_Q_Snake):
         # Define discount factor
         self.__gamma = 0.75
 
-        self.__state_replay_buffer = np.array([]).reshape(0, 11)
-        self.__action_replay_buffer = np.array([]).reshape(0, 1)
-        self.__reward_replay_buffer = np.array([]).reshape(0, 1)
-        self.__state_prime_replay_buffer = np.array([]).reshape(0, 11)
-        self.__terminal_replay_buffer = np.array([]).reshape(0, 1)
+        input = tf.keras.layers.Input(shape=(11, ))
+        layer1 = tf.keras.layers.Dense(100, activation='relu')(input)
+        layer2 = tf.keras.layers.Dense(100, activation='relu')(layer1)
+        layer3 = tf.keras.layers.Dense(100, activation='relu')(layer2)
+        head1 = tf.keras.layers.Dense(3, activation='softmax')(layer3)
+        head2 = tf.keras.layers.Dense(3, activation='softmax')(layer3)
+        head3 = tf.keras.layers.Dense(3, activation='softmax')(layer3)
 
-        #self.mini_sprime = []
-
-        self.input = tf.keras.layers.Input(shape = (11, ))
-        self.layer1 = tf.keras.layers.Dense(100, activation='relu')(self.input)
-        self.layer2 = tf.keras.layers.Dense(100, activation='relu')(self.layer1)
-        self.layer3 = tf.keras.layers.Dense(100, activation='relu')(self.layer2)
-        self.head1 = tf.keras.layers.Dense(3, activation='softmax')(self.layer3)
-        self.head2 = tf.keras.layers.Dense(3, activation='softmax')(self.layer3)
-        self.head3 = tf.keras.layers.Dense(3, activation='softmax')(self.layer3)
-
-        self.__dql_model = tf.keras.models.Model(inputs=self.input, outputs=[self.head1, self.head2, self.head3])
+        self.__dql_model = tf.keras.Model(inputs=input, outputs=[head1, head2, head3])
 
     def minibatch(self, batch_size):
         """
@@ -64,18 +55,42 @@ class Advising_Snake(Deep_Q_Snake):
         :return: 
         """
         #add len here
-        samples = np.floor(np.random.random((self.__state_replay_buffer,)) * batch_size)
+        samples = random.sample([i for i in range(len(self._state_replay_buffer))], batch_size)
 
         # select the experience from the sampled index
-        self.mini_state = [self.__state_replay_buffer[int(i)] for i in samples]
-        self.mini_reward = [self.__reward_replay_buffer[int(i)] for i in samples]
-        self.mini_action = [self.__action_replay_buffer[int(i)] for i in samples]
-        self.mini_sprime = [self.__state_prime_replay_buffer[int(i)] for i in samples]
-        self.mini_terminal = [self.__terminal_replay_buffer[int(i)] for i in samples]
+        self.mini_state = [self._state_replay_buffer[int(i)] for i in samples]
+        self.mini_reward = [self._reward_replay_buffer[int(i)] for i in samples]
+        self.mini_action = [self._action_replay_buffer[int(i)] for i in samples]
+        self.mini_sprime = [self._state_prime_replay_buffer[int(i)] for i in samples]
+        self.mini_terminal = [self._terminal_replay_buffer[int(i)] for i in samples]
 
         return self.mini_state, self.mini_reward, self.mini_action, self.mini_sprime, self.mini_terminal
 
-    
+    def compile(self, learning_rate: float = 0.00005):
+        """
+        Compile Deep Q-Learning model to instantiate optimizer, loss function and metrics for use in the training
+        process of the model
+
+        :param learning_rate: Learning rate value to be used in the model optimizer function
+        :return:
+        """
+        self.__dql_model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=learning_rate),
+                                 loss={'dense_7': tf.keras.losses.MeanSquaredError(),
+                                       'dense_8': tf.keras.losses.MeanSquaredError(),
+                                       'dense_9': tf.keras.losses.MeanSquaredError()},
+                                 metrics={'dense_7': 'accuracy',
+                                          'dense_8': 'accuracy',
+                                          'dense_9': 'accuracy'})
+
+    def state_action_q_values(self, state_vector):
+        """
+        Function to return the Q values of each action given the input state vector
+
+        :param state_vector: State vector describing the Snake's observable current observable environment
+        :return:
+        """
+        return [self.__dql_model.predict(x=state_vector)]
+
     def one_hot_encoding(self, action):
         """
         For one hot encoding the actions 
@@ -111,6 +126,85 @@ class Advising_Snake(Deep_Q_Snake):
         """
         
         return random.randrange(100) < percent
+
+    def __epsilon_greedy_selection(self, state_vector):
+        """
+        Determine the action to be taken based on the epsilon-greedy selection method
+
+        :param state_vector: State vector describing the Snake's observable current observable environment
+        :return:
+        """
+        state_vector = state_vector.reshape(1, -1)
+        if np.random.uniform(0, 1) < self.__epsilon:
+            action = np.random.choice([0, 1, 2])
+        else:
+            state_q_vals = self.state_action_q_values(state_vector=state_vector)[0]
+            action = np.argmax(np.average(state_q_vals, axis=0))
+        return action
+
+    def dql_update(self, food_loc, window_width, window_height):
+        """
+        Update the trajectory of the snake at a given point in time based on the determined action from the DQL network
+
+        :param food_loc: Location of the food within the game screen
+        :param window_width: Width of the game window in which the snake can move
+        :param window_height: Height of the game window in which the snake can move
+        :return:
+        """
+        # Select an action to be taken based on the Epsilon-Greedy selection method
+        action = self.__epsilon_greedy_selection(state_vector=self.state_vector(food_loc=food_loc,
+                                                                                window_width=window_width,
+                                                                                window_height=window_height))
+
+        # If selected action is to turn left (action 1)
+        if action == 1:
+            # And current trajectory is moving West
+            if self.trajectory.x < 0:
+                # Change trajectory to be moving South
+                self.trajectory.x = 0
+                self.trajectory.y = self.block_size
+            # And current trajectory is moving East
+            elif self.trajectory.x > 0:
+                # Change trajectory to be moving North
+                self.trajectory.x = 0
+                self.trajectory.y = -self.block_size
+            # And current trajectory is moving North
+            elif self.trajectory.y < 0:
+                # Change trajectory to be moving West
+                self.trajectory.x = -self.block_size
+                self.trajectory.y = 0
+            # And current trajectory is moving South
+            elif self.trajectory.y > 0:
+                # Change trajectory to be moving East
+                self.trajectory.x = self.block_size
+                self.trajectory.y = 0
+        # If selected action is to turn right (action 2)
+        elif action == 2:
+            # And current trajectory is moving West
+            if self.trajectory.x < 0:
+                # Change trajectory to be moving North
+                self.trajectory.x = 0
+                self.trajectory.y = -self.block_size
+            # And current trajectory is moving East
+            elif self.trajectory.x > 0:
+                # Change trajectory to be moving South
+                self.trajectory.x = 0
+                self.trajectory.y = self.block_size
+            # And current trajectory is moving North
+            elif self.trajectory.y < 0:
+                # Change trajectory to be moving East
+                self.trajectory.x = self.block_size
+                self.trajectory.y = 0
+            # And current trajectory is moving South
+            elif self.trajectory.y > 0:
+                # Change trajectory to be moving West
+                self.trajectory.x = -self.block_size
+                self.trajectory.y = 0
+        # Otherwise, selected action is to continue straight (action 0)
+        else:
+            # Continue with the current specified trajectory
+            self.trajectory = self.trajectory
+        return action
 
     def advising_update(self, action):
         """
@@ -170,7 +264,6 @@ class Advising_Snake(Deep_Q_Snake):
         else:
             # Continue with the current specified trajectory
             self.trajectory = self.trajectory
-        return action
 
     def uncertainty_estimator(self, state_vector):
         """
@@ -180,12 +273,12 @@ class Advising_Snake(Deep_Q_Snake):
         :param state_vector: for calculating the Q values
         :return:
         """
-        for i in range(self.head_number):
-            #self.__dql_model.outputs[i]
-            self.variance += np.var(self.state_action_q_values(state_vector)[i])
-            self.uncertainty = self.variance/3
+        state_vector = state_vector.reshape(1, -1)
+        self.variance = sum(np.var([self.state_action_q_values(state_vector)[0][i][0] for i in range(self.head_number)],
+                                   axis=0))
+        self.uncertainty = self.variance/3
 
-            return self.uncertainty
+        return self.uncertainty
         
     def train(self, epochs: int = 1, verbose: int = 0):
         """
@@ -201,12 +294,16 @@ class Advising_Snake(Deep_Q_Snake):
         # Initialize an empty array of length 3 to store Q value approximations for each state vector
         target_Qs = np.array([]).reshape(0, 3)
 
+        mini_batch_size = int(len(self._state_replay_buffer)*0.75)
+        minibatch_state, minibatch_reward, minibatch_action, minibatch_state_prime, minibatch_terminal = \
+            self.minibatch(batch_size=mini_batch_size)
+
         # Loop through each of the replay buffers values (zipped together to preserve order)
-        for state, reward, action, state_prime, terminal in zip(self.minibatch( self.__state_replay_buffer,
-                                                                                self.__reward_replay_buffer,
-                                                                                self.__action_replay_buffer,
-                                                                                self.__state_prime_replay_buffer,
-                                                                                self.__terminal_replay_buffer)):
+        for state, reward, action, state_prime, terminal in zip(minibatch_state,
+                                                                minibatch_reward,
+                                                                minibatch_action,
+                                                                minibatch_state_prime,
+                                                                minibatch_terminal):
             # Ensure that the state vector is in the correct shape to be passed into the network
             if state.shape[0] != reward.shape[0]:
                 state = state.reshape(1, -1)
@@ -214,32 +311,23 @@ class Advising_Snake(Deep_Q_Snake):
             if state_prime.shape[0] != reward.shape[0]:
                 state_prime = state_prime.reshape(1, -1)
 
-            #One hot encodes the action coming from minibatch
-            # This might go
-            action = self.one_hot_encoding(action)
-
-            # Get the max Q value for the state from all actions 
-            target_Qs = self.target_network(state_prime)
-
             # Utilize the Deep Q Network as the Q-value policy to predict action to take at current state
             state_Q_vals = self.state_action_q_values(state)[0]
 
             for i in range(self.head_number):
 
                 if not terminal:
-
                     # Utilize the Deep Q Network as the Q-value policy to predict action to take at next state
-                    total += self.state_action_q_values(state_prime)[i]
-                    average = total/self.head_number
+                    state_prime_Q_vals = self.state_action_q_values(state_prime)[0][i][0]
 
                     # Calculate the Q value update from the action selected for the next state
-                    target_Q_val = (reward + (self.__gamma * np.max(average)))
+                    target_Q_val = (reward + (self.__gamma * np.max(state_prime_Q_vals)))
                 else:
                     target_Q_val = reward
 
                 # Update the Q val for the action taken at current time step to be the calculated Q value update
-                state_Q_vals[int(action)] = target_Q_val
-                state_Q_vals = state_Q_vals.reshape(1, -1)
+
+                state_Q_vals[i][0][int(action)] = target_Q_val
 
             if verbose == 1:
                 print(state)
@@ -250,8 +338,8 @@ class Advising_Snake(Deep_Q_Snake):
                                  verbose=verbose)
 
         # Reset all of the replay buffers at the end of each episodes training stage
-        self.__state_replay_buffer = np.array([]).reshape(0, 11)
-        self.__action_replay_buffer = np.array([]).reshape(0, 1)
-        self.__reward_replay_buffer = np.array([]).reshape(0, 1)
-        self.__state_prime_replay_buffer = np.array([]).reshape(0, 11)
-        self.__terminal_replay_buffer = np.array([]).reshape(0, 1)
+        self._state_replay_buffer = np.array([]).reshape(0, 11)
+        self._action_replay_buffer = np.array([]).reshape(0, 1)
+        self._reward_replay_buffer = np.array([]).reshape(0, 1)
+        self._state_prime_replay_buffer = np.array([]).reshape(0, 11)
+        self._terminal_replay_buffer = np.array([]).reshape(0, 1)

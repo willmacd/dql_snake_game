@@ -31,11 +31,11 @@ class Deep_Q_Snake(Snake):
         # Define discount factor
         self.__gamma = 0.75
 
-        self.__state_replay_buffer = np.array([]).reshape(0, 11)
-        self.__action_replay_buffer = np.array([]).reshape(0, 1)
-        self.__reward_replay_buffer = np.array([]).reshape(0, 1)
-        self.__state_prime_replay_buffer = np.array([]).reshape(0, 11)
-        self.__terminal_replay_buffer = np.array([]).reshape(0, 1)
+        self._state_replay_buffer = np.array([]).reshape(0, 11)
+        self._action_replay_buffer = np.array([]).reshape(0, 1)
+        self._reward_replay_buffer = np.array([]).reshape(0, 1)
+        self._state_prime_replay_buffer = np.array([]).reshape(0, 11)
+        self._terminal_replay_buffer = np.array([]).reshape(0, 1)
 
         # Define Deep Q-Learning model architecture
         # Initialize a sequential neural network architecture and its input layer
@@ -344,11 +344,11 @@ class Deep_Q_Snake(Snake):
         :param terminal_state: Boolean value to indicate whether or not the current state is a terminal state
         :return:
         """
-        self.__state_replay_buffer = np.vstack((self.__state_replay_buffer, state_vector))
-        self.__action_replay_buffer = np.vstack((self.__action_replay_buffer, action))
-        self.__reward_replay_buffer = np.vstack((self.__reward_replay_buffer, reward))
-        self.__state_prime_replay_buffer = np.vstack((self.__state_prime_replay_buffer, state_prime_vector))
-        self.__terminal_replay_buffer = np.vstack((self.__terminal_replay_buffer, terminal_state))
+        self._state_replay_buffer = np.vstack((self._state_replay_buffer, state_vector))
+        self._action_replay_buffer = np.vstack((self._action_replay_buffer, action))
+        self._reward_replay_buffer = np.vstack((self._reward_replay_buffer, reward))
+        self._state_prime_replay_buffer = np.vstack((self._state_prime_replay_buffer, state_prime_vector))
+        self._terminal_replay_buffer = np.vstack((self._terminal_replay_buffer, terminal_state))
 
     def summarize_dql_network(self):
         """
@@ -395,11 +395,11 @@ class Deep_Q_Snake(Snake):
 
         # call minibarch and isde the zip have minibatch
         # Loop through each of the replay buffers values (zipped together to preserve order)
-        for state, reward, action, state_prime, terminal in zip(self.__state_replay_buffer,
-                                                                self.__reward_replay_buffer,
-                                                                self.__action_replay_buffer,
-                                                                self.__state_prime_replay_buffer,
-                                                                self.__terminal_replay_buffer):
+        for state, reward, action, state_prime, terminal in zip(self._state_replay_buffer,
+                                                                self._reward_replay_buffer,
+                                                                self._action_replay_buffer,
+                                                                self._state_prime_replay_buffer,
+                                                                self._terminal_replay_buffer):
             # Ensure that the state vector is in the correct shape to be passed into the network
             if state.shape[0] != reward.shape[0]:
                 state = state.reshape(1, -1)
@@ -431,11 +431,11 @@ class Deep_Q_Snake(Snake):
                                  verbose=verbose)
 
         # Reset all of the replay buffers at the end of each episodes training stage
-        self.__state_replay_buffer = np.array([]).reshape(0, 11)
-        self.__action_replay_buffer = np.array([]).reshape(0, 1)
-        self.__reward_replay_buffer = np.array([]).reshape(0, 1)
-        self.__state_prime_replay_buffer = np.array([]).reshape(0, 11)
-        self.__terminal_replay_buffer = np.array([]).reshape(0, 1)
+        self._state_replay_buffer = np.array([]).reshape(0, 11)
+        self._action_replay_buffer = np.array([]).reshape(0, 1)
+        self._reward_replay_buffer = np.array([]).reshape(0, 1)
+        self._state_prime_replay_buffer = np.array([]).reshape(0, 11)
+        self._terminal_replay_buffer = np.array([]).reshape(0, 1)
 
     def save_model(self, outdir: str = './dql_snake.h5'):
         """
