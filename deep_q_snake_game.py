@@ -19,7 +19,7 @@ BLOCK_SIZE = 20
 global SCREEN, CLOCK
 
 # Initialize global hyper-parameters
-EPISODES = 500
+EPISODES = 50
 MAX_STEPS_SINCE_FOOD = 200
 LR = 0.000075
 
@@ -34,6 +34,7 @@ if __name__ == '__main__':
     CLOCK = pygame.time.Clock()
 
     snake = Deep_Q_Snake()
+    # Comment this line if you wish to train the model instead of using the pretrained version
     snake.load_weights("./saved_models/initial_train/dql_snake.h5")
     snake.compile(learning_rate=LR)
 
@@ -136,10 +137,10 @@ if __name__ == '__main__':
         SCREEN.blit(game_over_message, [WINDOW_WIDTH / 4, WINDOW_HEIGHT / 4])
         pygame.display.update()
 
-        '''
         # To train the model, remove the block comment quotations above this line
         if snake.snake_length-1 > best_score:
             best_score = snake.snake_length-1
+            ''' # Uncomment these lines if you wish to train the model instead of using the pretrained version
             snake.save_model()
 
         snake.train(epochs=1, verbose=1)    # '''

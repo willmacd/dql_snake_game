@@ -224,7 +224,6 @@ class Deep_Q_Snake(Snake):
             if cell == [self.rect.x + self.block_size + self.block_size, self.rect.y]:
                 # And Snake's trajectory is moving right
                 if self.trajectory.x > 0:
-                    print("Danger Straight")
                     # Set `danger_straight` to 1
                     danger_straight = 1
 
@@ -232,7 +231,6 @@ class Deep_Q_Snake(Snake):
             if cell == [self.rect.x - self.block_size - self.block_size, self.rect.y]:
                 # And Snake's trajectory is moving left
                 if self.trajectory.x < 0:
-                    print("Danger Straight")
                     # Set `danger_straight` to 1
                     danger_straight = 1
 
@@ -240,7 +238,6 @@ class Deep_Q_Snake(Snake):
             if cell == [self.rect.x, self.rect.y + self.block_size + self.block_size]:
                 # And Snake's trajectory is moving down
                 if self.trajectory.y > 0:
-                    print("Danger Straight")
                     # Set `danger_straight` to 1
                     danger_straight = 1
 
@@ -248,7 +245,6 @@ class Deep_Q_Snake(Snake):
             if cell == [self.rect.x, self.rect.y - self.block_size - self.block_size]:
                 # And Snake's trajectory is moving up
                 if self.trajectory.y < 0:
-                    print("Danger Straight")
                     # Set `danger_straight` to 1
                     danger_straight = 1
 
