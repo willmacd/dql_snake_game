@@ -89,16 +89,15 @@ if __name__ == '__main__':
             uncertainty = snake.uncertainty_estimator(state_vector)
 
             if uncertainty >= HIGH_UNCERTAINTY and available:
-                # action = ddemonstrator policy
-                action = snake.advising_update(action)
+        
+                # If there is high uncertainty and the agent is available ask for advice
+                # From DQN Snake experience
+                action = np.argmax(dqn_Snake.state_action_q_values(state_vector))
             
             else:
-            
-                # apply action and observe s', r
-                #update Q^ and plicy wiht (s, a, r ,s')
-                #end for
-                # Update Snake asset's trajectory based on keyboard inputs (this will later become DQL policy inputs)
-                action = np.argmax(dqn_Snake.state_action_q_values(state_vector))
+                
+                # continue with regular movement
+                action = snake.dql_update(food_loc=food.rect, window_width=WINDOW_WIDTH, window_height=WINDOW_HEIGHT)
 
             # Move the snake to its new location and check whether a collision occurs with the snakes tail
             game_over = snake.move_snake()
@@ -158,13 +157,12 @@ if __name__ == '__main__':
         SCREEN.blit(game_over_message, [WINDOW_WIDTH / 4, WINDOW_HEIGHT / 4])
         pygame.display.update()
 
-        '''
-        # To train the model, remove the block comment quotations above this line
+        #To train the model, remove the block comment quotations above this line
         if snake.snake_length-1 > best_score:
             best_score = snake.snake_length-1
             snake.save_model()
 
-        snake.train(epochs=1, verbose=1)    # '''
+        snake.train(epochs=1, verbose=1)    
 
     # Exit the game and finish execution
     pygame.quit()

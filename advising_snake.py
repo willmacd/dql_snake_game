@@ -1,6 +1,7 @@
 """ Child class of Snake to be used for Action Advising implementation of Snake game """
 import os
 from random import random
+from statistics import variance
 
 import numpy as np
 import tensorflow as tf
@@ -32,6 +33,7 @@ class Advising_Snake(Deep_Q_Snake):
 
         # Define the exploration rate
         self.__epsilon = float(1 / 75)
+        self.variance = 0
 
         # Define discount factor
         self.__gamma = 0.75
@@ -44,15 +46,15 @@ class Advising_Snake(Deep_Q_Snake):
 
         #self.mini_sprime = []
 
-        input = tf.keras.layers.Input(shape = (11, ))
-        layer1 = tf.keras.layers.Dense(100, activation='relu')(input)
-        layer2 = tf.keras.layers.Dense(100, activation='relu')(layer1)
-        layer3 = tf.keras.layers.Dense(100, activation='relu')(layer2)
-        head1 = tf.keras.layers.Dense(3, activation='softmax')(layer3)
-        head2 = tf.keras.layers.Dense(3, activation='softmax')(layer3)
-        head3 = tf.keras.layers.Dense(3, activation='softmax')(layer3)
+        self.input = tf.keras.layers.Input(shape = (11, ))
+        self.layer1 = tf.keras.layers.Dense(100, activation='relu')(input)
+        self.layer2 = tf.keras.layers.Dense(100, activation='relu')(self.layer1)
+        self.layer3 = tf.keras.layers.Dense(100, activation='relu')(self.layer2)
+        self.head1 = tf.keras.layers.Dense(3, activation='softmax')(self.layer3)
+        self.head2 = tf.keras.layers.Dense(3, activation='softmax')(self.layer3)
+        self.head3 = tf.keras.layers.Dense(3, activation='softmax')(self.layer3)
 
-        self.__dql_model = tf.keras.models.Model(inputs=input, outputs=[head1, head2, head3])
+        self.__dql_model = tf.keras.models.Model(inputs=input, outputs=[self.head1, self.head2, self.head3])
 
     def minibatch(self, batch_size):
         """
@@ -88,12 +90,26 @@ class Advising_Snake(Deep_Q_Snake):
         return action
     
     def target_network(self, mini_sprime):
+        """
+        Calculate the Q value with the minibatch state prime and return the max of all actions
+
+        :param minibatch of state prime
+        :return:
+        """
 
         target_Q = np.amax(self.state_action_q_values(mini_sprime), axis = 0)
 
         return target_Q
 
     def availability(self, percent=75):
+        """
+        Randomly assign True or False for agent's availability. Returns true 75% of the time, meaning 
+        the agent is available 75% of the time
+
+        :param percentage it would return True
+        :return:
+        """
+        
         return random.randrange(100) < percent
 
     def advising_update(self, action):
@@ -105,7 +121,7 @@ class Advising_Snake(Deep_Q_Snake):
         :param window_height: Height of the game window in which the snake can move
         :return:
         """
-
+    
         # If selected action is to turn left (action 1)
         if action == 1:
             # And current trajectory is moving West
@@ -156,14 +172,20 @@ class Advising_Snake(Deep_Q_Snake):
             self.trajectory = self.trajectory
         return action
 
-    #TODO: fill this
     def uncertainty_estimator(self, state_vector):
+        """
+        Estimates uncertinty for asking for advice. Calculates the variance of Q values for each head.
+        and divided by the number of actions
 
+        :param state_vector: for calculating the Q values
+        :return:
+        """
         for i in range(self.head_number):
-            self.__dql_model.outputs[i]
-            uncertainty = np.var(self.state_action_q_values(state_vector))
+            #self.__dql_model.outputs[i]
+            self.variance += np.var(self.state_action_q_values(state_vector)[i])
+            self.uncertainty = self.variance/3
 
-            return uncertainty
+            return self.uncertainty
         
     def train(self, epochs: int = 1, verbose: int = 0):
         """
@@ -179,9 +201,6 @@ class Advising_Snake(Deep_Q_Snake):
         # Initialize an empty array of length 3 to store Q value approximations for each state vector
         target_Qs = np.array([]).reshape(0, 3)
 
-        
-
-        # call minibarch and isde the zip have minibatch
         # Loop through each of the replay buffers values (zipped together to preserve order)
         for state, reward, action, state_prime, terminal in zip(self.minibatch( self.__state_replay_buffer,
                                                                                 self.__reward_replay_buffer,
@@ -195,25 +214,34 @@ class Advising_Snake(Deep_Q_Snake):
             if state_prime.shape[0] != reward.shape[0]:
                 state_prime = state_prime.reshape(1, -1)
 
+            #One hot encodes the action coming from minibatch
+            # This might go
             action = self.one_hot_encoding(action)
-            target_Qs = self.target_network(state_prime)
 
+            # Get the max Q value for the state from all actions 
+            target_Qs = self.target_network(state_prime)
 
             # Utilize the Deep Q Network as the Q-value policy to predict action to take at current state
             state_Q_vals = self.state_action_q_values(state)[0]
 
-            if not terminal:
-                # Utilize the Deep Q Network as the Q-value policy to predict action to take at next state
-                state_prime_Q_vals = self.state_action_q_values(state_prime)[0]
+            for i in range(self.head_number):
 
-                # Calculate the Q value update from the action selected for the next state
-                target_Q_val = (reward + (self.__gamma * np.max(state_prime_Q_vals)))
-            else:
-                target_Q_val = reward
+                if not terminal:
+                    
+                    #average should be a list 1x3 of the averaged actions
+                    average = tf.keras.layers.Average()([self.head1, self.head2, self.head3])
 
-            # Update the Q val for the action taken at current time step to be the calculated Q value update
-            state_Q_vals[int(action)] = target_Q_val
-            state_Q_vals = state_Q_vals.reshape(1, -1)
+                    # Utilize the Deep Q Network as the Q-value policy to predict action to take at next state
+                    state_prime_Q_vals = self.state_action_q_values(state_prime)[0]
+
+                    # Calculate the Q value update from the action selected for the next state
+                    target_Q_val = (reward + (self.__gamma * np.max(average)))
+                else:
+                    target_Q_val = reward
+
+                # Update the Q val for the action taken at current time step to be the calculated Q value update
+                state_Q_vals[int(action)] = target_Q_val
+                state_Q_vals = state_Q_vals.reshape(1, -1)
 
             if verbose == 1:
                 print(state)
