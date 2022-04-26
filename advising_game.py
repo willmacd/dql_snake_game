@@ -6,6 +6,7 @@ from matplotlib.style import available
 
 import numpy as np
 import pygame
+import matplotlib.pyplot as plt
 
 from deep_q_snake import Deep_Q_Snake
 from advising_snake import Advising_Snake
@@ -21,7 +22,7 @@ BLOCK_SIZE = 20
 global SCREEN, CLOCK
 
 # Initialize global hyper-parameters
-EPISODES = 500
+EPISODES = 150
 MAX_STEPS_SINCE_FOOD = 200
 LR = 0.000075
 
@@ -40,7 +41,7 @@ if __name__ == '__main__':
     snake = Advising_Snake()
     dqn_Snake = Deep_Q_Snake()
     
-    dqn_Snake.load_weights("./saved_models/initial_train/dql_snake.h5")
+    dqn_Snake.load_weights("./saved_models/dqn/dqn_snake.h5")
     dqn_Snake.compile(learning_rate=LR)
     snake.compile(learning_rate=LR)
 
@@ -50,6 +51,7 @@ if __name__ == '__main__':
 
     best_score = 0
     spin_out_count = 0
+    score_per_episode = []
     for episode in range(1, EPISODES+1):
         print("Episode {}".format(episode))
         # Define an instance of the Food Pellet and initialize its locations within the game board
@@ -157,7 +159,8 @@ if __name__ == '__main__':
         SCREEN.blit(game_over_message, [WINDOW_WIDTH / 4, WINDOW_HEIGHT / 4])
         pygame.display.update()
 
-        #To train the model, remove the block comment quotations above this line
+        score_per_episode.append(snake.snake_length-1)
+        # To train the model, remove the block comment quotations above this line
         if snake.snake_length-1 > best_score:
             best_score = snake.snake_length-1
             snake.save_model()
@@ -168,4 +171,10 @@ if __name__ == '__main__':
     pygame.quit()
     print("Best Achieved Score: {}".format(best_score))
     print("Agent Spun Out {} Times".format(spin_out_count))
+    plt.plot(score_per_episode)
+    plt.title("Score per Episode of Training")
+    plt.xlabel("Episode")
+    plt.ylabel("Game Score")
+    plt.show()
+
     sys.exit()

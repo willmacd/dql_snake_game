@@ -35,7 +35,7 @@ if __name__ == '__main__':
 
     snake = Deep_Q_Snake()
     # Comment this line if you wish to train the model instead of using the pretrained version
-    snake.load_weights("./saved_models/initial_train/dql_snake.h5")
+    snake.load_weights("./saved_models/dqn/dqn_snake.h5")
     snake.compile(learning_rate=LR)
 
     # Update display and set a Window name for the game
